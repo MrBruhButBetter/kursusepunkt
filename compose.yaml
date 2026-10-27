@@ -1,0 +1,73 @@
+# Full stack: application + database + pgAdmin.
+#
+#   docker compose up --build        start everything
+#   docker compose logs -f app       follow application logs
+#   docker compose down              stop, keep data
+#   docker compose down -v           stop and DELETE the volume
+#
+# For day-to-day development prefer compose.dev.yaml, which runs only the
+# database so the application can restart in seconds from the IDE.
+
+name: kursusepunkt
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-kursusepunkt}
+      POSTGRES_USER: ${DB_USER:-app}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-app}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # The application must not start before the database accepts connections,
+      # or Flyway fails and the container exits.
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-app} -d ${DB_NAME:-kursusepunkt}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${DB_NAME:-kursusepunkt}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-app}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-app}
+      # The UI module runs outside compose during development.
+      APP_CORS_ALLOWED_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8080/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 45s
+    restart: unless-stopped
+
+  # Optional: a database UI for students who are not comfortable with psql.
+  # Start it explicitly:  docker compose --profile tools up pgadmin
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    profiles: ["tools"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: student@tak24.ee
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+
+volumes:
+  db-data:

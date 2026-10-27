@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: kursusepunkt
+
+  datasource:
+    # The default works when the database is on localhost; the environment
+    # variable takes over inside Docker, where the host is "db".
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/kursusepunkt}
+    username: ${SPRING_DATASOURCE_USERNAME:app}
+    password: ${SPRING_DATASOURCE_PASSWORD:app}
+
+  jpa:
+    hibernate:
+      # Never "update": the schema comes from Flyway migrations. See guide 03.
+      ddl-auto: validate
+    # Makes lazy-loading mistakes fail loudly instead of silently working.
+    open-in-view: false
+    properties:
+      hibernate.format_sql: true
+
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG

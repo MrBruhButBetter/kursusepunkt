@@ -1,0 +1,65 @@
+# Development stack — everything in containers.
+#
+#   docker compose -f compose.dev.yaml --profile docker-dev up
+#
+# Starts PostgreSQL and the application. The application runs inside a Maven
+# container with your source bind-mounted, so a code change restarts in
+# seconds without rebuilding an image. The first run downloads Maven
+# dependencies; afterwards they come from the named volume.
+#
+# To start only the database (if you have a local JDK and prefer to run the
+# application from your IDE):
+#
+#   docker compose -f compose.dev.yaml up -d db
+
+name: kursusepunkt-dev
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: kursusepunkt
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+    ports:
+      - "5432:5432"
+    volumes:
+      - dev-db-data:/var/lib/postgresql/data
+      # Anything here runs once, when the volume is first created.
+      # Useful for demo data; not a substitute for Flyway migrations.
+      - ./docker/seed:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d kursusepunkt"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Mode B: the application, built and run inside a container.
+  # Not started by default — use --profile docker-dev.
+  app-dev:
+    image: maven:3.9-eclipse-temurin-26
+    profiles: ["docker-dev"]
+    working_dir: /workspace
+    command: mvn -B spring-boot:run
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/kursusepunkt
+      SPRING_DATASOURCE_USERNAME: app
+      SPRING_DATASOURCE_PASSWORD: app
+      # DevTools restarts the application when compiled classes change.
+      SPRING_DEVTOOLS_RESTART_ENABLED: "true"
+      # Listen on all interfaces inside the container, and open a debug port
+      # so you can attach your IDE from the host (Remote JVM Debug, port 5005).
+      MAVEN_OPTS: "-Dspring-boot.run.jvmArguments=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+    ports:
+      - "8080:8080"   # API
+      - "5005:5005"   # JVM debug
+    volumes:
+      - .:/workspace                 # your source, live
+      - maven-repo:/root/.m2         # dependency cache, survives restarts
+
+volumes:
+  dev-db-data:
+  maven-repo:

@@ -1,0 +1,40 @@
+{
+  "name": "KursusePunkt (Java 26)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "26",
+      "installMaven": true,
+      "mavenVersion": "3.9.9"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+
+  "forwardPorts": [8080, 5432],
+  "portsAttributes": {
+    "8080": { "label": "API", "onAutoForward": "notify" },
+    "5432": { "label": "PostgreSQL" }
+  },
+
+  "postCreateCommand": "cp -n .env.example .env || true && mvn -B dependency:go-offline",
+  "postStartCommand": "docker compose -f compose.dev.yaml up -d",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "vmware.vscode-boot-dev-pack",
+        "redhat.vscode-xml",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "java.configuration.updateBuildConfiguration": "automatic",
+        "editor.formatOnSave": true,
+        "files.eol": "\n"
+      }
+    }
+  },
+
+  "remoteUser": "vscode"
+}

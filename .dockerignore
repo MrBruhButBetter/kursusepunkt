@@ -1,0 +1,31 @@
+# Build output — rebuilt inside the image, and copying it in breaks reproducibility
+target/
+build/
+out/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# VCS and CI
+.git/
+.github/
+.gitignore
+
+# Local environment — must never end up in an image
+.env
+*.env
+!.env.example
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Docs and notes: they change constantly and would bust the build cache
+docs/
+*.md
+!README.md
